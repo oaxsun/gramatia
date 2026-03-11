@@ -1,1 +1,1 @@
-window.CORRECTOR_API_BASE = "https://REPLACE-WITH-YOUR-RENDER-URL.onrender.com";
+window.CORRECTOR_API_BASE = "https://corrector-wxe2.onrender.com";
