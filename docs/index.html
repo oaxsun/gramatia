@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verificador de gramática en Español Latinoamericano</title>
+  <script src="config.js"></script>
+  <style>
+    :root {
+      --bg: #050816;
+      --panel: rgba(10, 18, 35, 0.78);
+      --panel-strong: rgba(9, 14, 28, 0.92);
+      --line: rgba(110, 168, 255, 0.22);
+      --line-strong: rgba(120, 191, 255, 0.38);
+      --text: #eef6ff;
+      --muted: #9fb5d1;
+      --blue-2: #4a90ff;
+      --cyan: #6be7ff;
+      --green: #5ee7a1;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(74, 144, 255, 0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(107, 231, 255, 0.12), transparent 22%),
+        linear-gradient(180deg, #030611 0%, #07111f 100%);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(2px 2px at 15% 20%, rgba(255,255,255,0.75), transparent 60%),
+        radial-gradient(1.5px 1.5px at 70% 15%, rgba(255,255,255,0.55), transparent 60%),
+        radial-gradient(1px 1px at 30% 70%, rgba(255,255,255,0.45), transparent 60%),
+        radial-gradient(1px 1px at 55% 40%, rgba(255,255,255,0.35), transparent 60%);
+      opacity: 0.85;
+    }
+    .boot-loader {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(180deg, #030611 0%, #07111f 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .boot-card {
+      width: min(520px, calc(100% - 32px));
+      background: rgba(10, 18, 35, 0.92);
+      border: 1px solid rgba(110, 168, 255, 0.22);
+      border-radius: 24px;
+      padding: 32px 24px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+      color: #eef6ff;
+    }
+    .boot-card h2 { margin: 0 0 10px; font-size: 24px; }
+    .boot-card p { margin: 0; color: #9fb5d1; line-height: 1.6; font-size: 15px; }
+    .spinner {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 18px;
+      border-radius: 50%;
+      border: 4px solid rgba(255, 255, 255, 0.12);
+      border-top-color: #6be7ff;
+      animation: spin 0.9s linear infinite;
+    }
+    .app-hidden { visibility: hidden; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .container {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 34px 0 60px;
+      position: relative;
+      z-index: 1;
+    }
+    .shell {
+      background: linear-gradient(180deg, rgba(12, 19, 36, 0.88), rgba(6, 10, 22, 0.92));
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(18px);
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 22px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .brand h1 { margin: 0; font-size: 24px; font-weight: 700; }
+    .brand p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+    .version {
+      color: #61b3ff;
+      font-size: 13px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(97, 179, 255, 0.08);
+    }
+    .content {
+      display: grid;
+      grid-template-columns: 1.45fr 0.9fr;
+      gap: 20px;
+      padding: 22px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+    }
+    .editor-panel, .stats-panel { padding: 18px; }
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .panel-title h2 { margin: 0; font-size: 18px; }
+    .hint { color: var(--muted); font-size: 13px; }
+    .editor-wrap {
+      position: relative;
+      min-height: 340px;
+      border-radius: 18px;
+      border: 1px solid rgba(120, 191, 255, 0.18);
+      background: linear-gradient(180deg, rgba(3, 8, 18, 0.95), rgba(8, 14, 28, 0.94));
+      overflow: hidden;
+    }
+    .highlights, textarea {
+      font: 16px/1.7 Inter, Arial, sans-serif;
+      padding: 18px;
+      border: 0;
+      width: 100%;
+      min-height: 340px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .highlights {
+      color: transparent;
+      overflow: auto;
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .highlights mark {
+      color: transparent;
+      background: rgba(255, 90, 90, 0.18);
+      border-bottom: 2px solid rgba(255, 126, 126, 0.95);
+      border-radius: 3px;
+      padding: 0;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+    textarea {
+      position: relative;
+      resize: vertical;
+      background: transparent;
+      color: var(--text);
+      outline: none;
+      caret-color: var(--cyan);
+      z-index: 1;
+    }
+    textarea::placeholder { color: #7f96b4; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+    button {
+      border: 1px solid transparent;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .btn-primary { background: linear-gradient(135deg, var(--blue-2), var(--cyan)); }
+    .btn-secondary { background: rgba(255,255,255,0.05); border-color: var(--line); }
+    .btn-success { background: linear-gradient(135deg, #18b77a, var(--green)); }
+    .btn-copy { background: linear-gradient(135deg, #6d7bff, #9f8bff); }
+
+    .stats-panel { display: flex; flex-direction: column; gap: 16px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .stat-card {
+      background: var(--panel-strong);
+      border: 1px solid rgba(120, 191, 255, 0.14);
+      border-radius: 18px;
+      padding: 16px;
+    }
+    .stat-card span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+    .stat-card strong { font-size: 28px; font-weight: 800; }
+    .result-box {
+      background: var(--panel-strong);
+      border: 1px solid rgba(120, 191, 255, 0.14);
+      border-radius: 18px;
+      padding: 16px;
+    }
+    .score { font-size: 15px; margin-bottom: 12px; color: #dcecff; line-height: 1.5; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .badge.ok { background: rgba(94, 231, 161, 0.12); border: 1px solid rgba(94, 231, 161, 0.28); color: #a8ffd0; }
+    .badge.warn { background: rgba(255, 201, 102, 0.10); border: 1px solid rgba(255, 201, 102, 0.24); color: #ffe0a4; }
+    .issues { margin: 0; padding-left: 18px; color: #e6efff; }
+    .issues li { margin-bottom: 8px; line-height: 1.55; }
+    .legend { margin-top: 10px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 22px 22px;
+      color: var(--muted);
+      font-size: 12px;
+      border-top: 1px solid rgba(255,255,255,0.04);
+    }
+    .toast {
+      position: fixed;
+      bottom: 22px;
+      right: 22px;
+      background: rgba(8, 14, 28, 0.96);
+      border: 1px solid var(--line-strong);
+      color: var(--text);
+      padding: 12px 14px;
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: all .2s ease;
+      z-index: 30;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    @media (max-width: 980px) {
+      .content { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 720px) {
+      .container { width: min(100% - 16px, 100%); padding-top: 14px; }
+      .topbar, .content, .footer { padding-left: 14px; padding-right: 14px; }
+      .topbar { flex-direction: column; align-items: flex-start; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .footer { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div id="bootLoader" class="boot-loader">
+    <div class="boot-card">
+      <div class="spinner"></div>
+      <h2>Conectando con el corrector...</h2>
+      <p id="bootMessage">Estamos despertando el servidor. Esto puede tardar unos segundos.</p>
+    </div>
+  </div>
+
+  <div class="container app-hidden" id="appRoot">
+    <div class="shell">
+      <div class="topbar">
+        <div class="brand">
+          <h1>Verificador Gramatical</h1>
+          <p>Español Latinoamericano · corrección con backend en Render</p>
+        </div>
+        <div class="version">v1.0.2</div>
+      </div>
+
+      <div class="content">
+        <section class="panel editor-panel">
+          <div class="panel-title">
+            <h2>Editor de texto</h2>
+            <div class="hint">Haz clic sobre una palabra subrayada para ver la sugerencia.</div>
+          </div>
+          <div class="editor-wrap">
+            <div id="highlights" class="highlights" aria-hidden="true"></div>
+            <textarea id="textInput" spellcheck="false" placeholder="Pega o escribe aquí tu texto en español..."></textarea>
+          </div>
+          <div class="actions">
+            <button class="btn-primary" onclick="analyzeText()">Analizar</button>
+            <button class="btn-success" onclick="correctText()">Corregir</button>
+            <button class="btn-copy" onclick="copyText()">Copiar</button>
+            <button class="btn-secondary" onclick="clearText()">Limpiar</button>
+          </div>
+        </section>
+
+        <aside class="panel stats-panel">
+          <div class="panel-title">
+            <h2>Resumen</h2>
+            <div class="hint">Métricas rápidas del texto</div>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-card"><span>Palabras</span><strong id="wordCount">0</strong></div>
+            <div class="stat-card"><span>Letras</span><strong id="letterCount">0</strong></div>
+            <div class="stat-card"><span>Caracteres</span><strong id="charCount">0</strong></div>
+            <div class="stat-card"><span>Posibles errores</span><strong id="issueCount">0</strong></div>
+          </div>
+          <div class="result-box" id="grammarResult">
+            <div class="badge warn">Esperando análisis</div>
+            <div class="score">Puntuación estimada: --/100</div>
+            <div class="legend">Presiona <strong>Analizar</strong> para revisar faltas de ortografía, acentuación, gramática y puntuación.</div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="footer">
+        <div>© OAXSUN Technologies 2026</div>
+        <div>Frontend conectado a tu backend en Render.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const API_BASE = window.CORRECTOR_API_BASE || '';
+    const textInput = document.getElementById('textInput');
+    const highlights = document.getElementById('highlights');
+    let lastMatches = [];
+
+    function escapeHtml(text) {
+      return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function countWords(text) {
+      const words = text.trim().match(/\S+/g);
+      return words ? words.length : 0;
+    }
+
+    function countLetters(text) {
+      const onlyLetters = text.match(/[A-Za-zÁÉÍÓÚáéíóúÜüÑñ]/g);
+      return onlyLetters ? onlyLetters.length : 0;
+    }
+
+    function syncScroll() {
+      highlights.scrollTop = textInput.scrollTop;
+      highlights.scrollLeft = textInput.scrollLeft;
+    }
+
+    function updateCounts(text, issueCount = null) {
+      document.getElementById('wordCount').textContent = countWords(text);
+      document.getElementById('letterCount').textContent = countLetters(text);
+      document.getElementById('charCount').textContent = text.length;
+      if (issueCount !== null) document.getElementById('issueCount').textContent = issueCount;
+    }
+
+    function renderHighlights(matches) {
+      const text = textInput.value;
+      if (!text) { highlights.innerHTML = ''; return; }
+      if (!matches.length) { highlights.innerHTML = escapeHtml(text) + '\n'; return; }
+
+      const ordered = [...matches].sort((a, b) => a.offset - b.offset);
+      let result = '';
+      let lastIndex = 0;
+
+      ordered.forEach(match => {
+        result += escapeHtml(text.slice(lastIndex, match.offset));
+        result += `<mark data-offset="${match.offset}" data-length="${match.length}">${escapeHtml(text.slice(match.offset, match.offset + match.length))}</mark>`;
+        lastIndex = match.offset + match.length;
+      });
+
+      result += escapeHtml(text.slice(lastIndex));
+      highlights.innerHTML = result + '\n';
+      syncScroll();
+    }
+
+    function renderIdleState() {
+      document.getElementById('grammarResult').innerHTML = `
+        <div class="badge warn">Esperando análisis</div>
+        <div class="score">Puntuación estimada: --/100</div>
+        <div class="legend">Presiona <strong>Analizar</strong> para revisar faltas de ortografía, acentuación, gramática y puntuación.</div>
+      `;
+    }
+
+    function summarizeList(matches) {
+      return matches.slice(0, 8).map(item => `<li>${escapeHtml(item.message || 'Posible error detectado.')}</li>`).join('');
+    }
+
+    async function analyzeText() {
+      const text = textInput.value;
+      updateCounts(text, 0);
+
+      if (!text.trim()) {
+        lastMatches = [];
+        renderHighlights([]);
+        document.getElementById('grammarResult').innerHTML = `
+          <div class="badge warn">No hay texto para analizar</div>
+          <div class="score">Puntuación estimada: 0/100</div>
+          <div class="legend">Pega o escribe contenido en el editor.</div>
+        `;
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/check`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, language: 'es' })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || 'No se pudo analizar el texto.');
+        }
+
+        lastMatches = Array.isArray(data.matches) ? data.matches : [];
+        renderHighlights(lastMatches);
+        updateCounts(text, lastMatches.length);
+
+        const score = Math.max(0, 100 - (lastMatches.length * 8));
+        const resultBox = document.getElementById('grammarResult');
+
+        if (!lastMatches.length) {
+          resultBox.innerHTML = `
+            <div class="badge ok">Sin errores detectados</div>
+            <div class="score">Puntuación estimada: ${score}/100</div>
+            <div class="legend">No se detectaron faltas con el análisis actual.</div>
+          `;
+          return;
+        }
+
+        resultBox.innerHTML = `
+          <div class="badge warn">Se encontraron observaciones</div>
+          <div class="score">Puntuación estimada: ${score}/100</div>
+          <ul class="issues">${summarizeList(lastMatches)}</ul>
+          <div class="legend">Haz clic sobre una palabra subrayada para ver y aplicar una sugerencia.</div>
+        `;
+      } catch (error) {
+        lastMatches = [];
+        renderHighlights([]);
+        document.getElementById('grammarResult').innerHTML = `
+          <div class="badge warn">Error de conexión</div>
+          <div class="score">No se pudo consultar el corrector.</div>
+          <div class="legend">${escapeHtml(error.message || 'Revisa config.js o tu backend en Render.')}</div>
+        `;
+      }
+    }
+
+    async function correctText() {
+      const text = textInput.value;
+      if (!text.trim()) { showToast('No hay texto para corregir.'); return; }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/correct`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, language: 'es' })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || 'No se pudo corregir el texto.');
+        }
+
+        textInput.value = data.correctedText || text;
+        await analyzeText();
+        showToast('Texto corregido.');
+      } catch (error) {
+        showToast(error.message || 'No se pudo corregir el texto.');
+      }
+    }
+
+    async function copyText() {
+      const text = textInput.value;
+      if (!text.trim()) { showToast('No hay texto para copiar.'); return; }
+
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('Texto copiado al portapapeles.');
+      } catch (_error) {
+        const helper = document.createElement('textarea');
+        helper.value = text;
+        document.body.appendChild(helper);
+        helper.select();
+        document.execCommand('copy');
+        helper.remove();
+        showToast('Texto copiado al portapapeles.');
+      }
+    }
+
+    function clearText() {
+      textInput.value = '';
+      lastMatches = [];
+      renderHighlights([]);
+      updateCounts('', 0);
+      renderIdleState();
+    }
+
+    function showSuggestion(match) {
+      const selectedText = textInput.value.slice(match.offset, match.offset + match.length);
+      const primary = Array.isArray(match.replacements) && match.replacements.length ? match.replacements[0] : '';
+      const resultBox = document.getElementById('grammarResult');
+
+      resultBox.innerHTML = `
+        <div class="badge warn">Sugerencia encontrada</div>
+        <div class="score"><strong>Texto detectado:</strong> ${escapeHtml(selectedText)}</div>
+        <div class="score"><strong>Sugerencia:</strong> ${escapeHtml(primary || 'Sin sugerencia disponible')}</div>
+        <div class="legend" style="margin-bottom:12px;">${escapeHtml(match.message || 'Posible error detectado.')}</div>
+        ${primary ? '<button class="btn-success" id="applySuggestionBtn">Aplicar corrección</button>' : ''}
+      `;
+
+      if (primary) {
+        document.getElementById('applySuggestionBtn').addEventListener('click', () => {
+          const current = textInput.value;
+          textInput.value = current.slice(0, match.offset) + primary + current.slice(match.offset + match.length);
+          analyzeText();
+          showToast('Corrección aplicada.');
+        }, { once: true });
+      }
+    }
+
+    textInput.addEventListener('scroll', syncScroll);
+    textInput.addEventListener('input', () => {
+      renderHighlights([]);
+      updateCounts(textInput.value, 0);
+    });
+
+    highlights.addEventListener('click', (event) => {
+      const mark = event.target.closest('mark');
+      if (!mark) return;
+      const offset = Number(mark.dataset.offset);
+      const length = Number(mark.dataset.length);
+      const match = lastMatches.find(item => item.offset === offset && item.length === length);
+      if (match) showSuggestion(match);
+    });
+
+    let toastTimer;
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    async function waitForBackend() {
+      const loader = document.getElementById('bootLoader');
+      const message = document.getElementById('bootMessage');
+      const appRoot = document.getElementById('appRoot');
+      const healthUrl = `${API_BASE}/health`;
+
+      let attempts = 0;
+      const maxAttempts = 20;
+
+      while (attempts < maxAttempts) {
+        attempts += 1;
+        try {
+          message.textContent = attempts === 1
+            ? 'Estamos despertando el servidor. Esto puede tardar unos segundos.'
+            : `Conectando con el backend... intento ${attempts} de ${maxAttempts}.`;
+
+          const response = await fetch(healthUrl, { method: 'GET', cache: 'no-store' });
+          if (response.ok) {
+            loader.style.display = 'none';
+            appRoot.classList.remove('app-hidden');
+            return;
+          }
+        } catch (_error) {}
+
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+
+      message.textContent = 'No se pudo conectar con el backend en este momento. Recarga la página en unos segundos.';
+    }
+
+    renderHighlights([]);
+    updateCounts('', 0);
+    renderIdleState();
+    waitForBackend();
+  </script>
+</body>
+</html>
