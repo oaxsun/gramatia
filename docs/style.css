@@ -435,12 +435,12 @@ button {
 .suggestion-tooltip {
   position: absolute;
   z-index: 999;
-  width: min(360px, calc(100vw - 24px));
+  width: min(216px, calc(100vw - 24px));
   max-width: calc(100vw - 24px);
   min-width: 0;
   background: rgba(8, 14, 28, 0.985);
   border: 1px solid var(--line-strong);
-  border-radius: 16px;
+  border-radius: 12px;
   padding: 0;
   box-shadow: var(--shadow);
   overflow: hidden;
@@ -451,22 +451,22 @@ button {
 }
 
 .tooltip-header {
-  padding: 14px 16px 10px;
+  padding: 9px 10px 7px;
   background: rgba(255, 255, 255, 0.03);
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
 .tooltip-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
   color: #ffb4b4;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   word-break: break-word;
 }
 
 .tooltip-subtitle {
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 11px;
+  line-height: 1.35;
   color: #dcecff;
   margin: 0;
 }
@@ -475,7 +475,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 0;
-  max-height: min(320px, 50vh);
+  max-height: min(190px, 42vh);
   overflow-y: auto;
 }
 
@@ -486,13 +486,13 @@ button {
   border: 0;
   border-top: 1px solid rgba(255,255,255,0.06);
   color: #eef6ff;
-  padding: 14px 16px;
+  padding: 9px 10px;
   border-radius: 0;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 700;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .tooltip-suggestion:hover {
@@ -501,11 +501,11 @@ button {
 
 .tooltip-suggestion::before {
   content: "";
-  width: 10px;
-  height: 10px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
   background: #45c160;
-  flex: 0 0 10px;
+  flex: 0 0 7px;
 }
 
 .tooltip-ignore {
@@ -515,12 +515,12 @@ button {
   border: 0;
   border-top: 1px solid rgba(255,255,255,0.08);
   color: #cfd9e8;
-  padding: 14px 16px;
-  font-size: 15px;
+  padding: 9px 10px;
+  font-size: 12px;
   font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .tooltip-ignore:hover {
@@ -529,16 +529,16 @@ button {
 
 .tooltip-ignore::before {
   content: "✕";
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
   border-radius: 999px;
-  border: 1.5px solid currentColor;
+  border: 1.2px solid currentColor;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 9px;
   line-height: 1;
-  flex: 0 0 22px;
+  flex: 0 0 16px;
 }
 
 @media (max-width: 980px) {
@@ -580,30 +580,30 @@ button {
 
 @media (max-width: 640px) {
   .suggestion-tooltip {
-    width: calc(100vw - 16px);
+    width: min(216px, calc(100vw - 16px));
     max-width: calc(100vw - 16px);
-    border-radius: 14px;
+    border-radius: 12px;
   }
 
   .tooltip-header {
-    padding: 12px 14px 10px;
+    padding: 9px 10px 7px;
   }
 
   .tooltip-title {
-    font-size: 14px;
+    font-size: 12px;
   }
 
   .tooltip-subtitle {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .tooltip-suggestion,
   .tooltip-ignore {
-    padding: 14px;
-    font-size: 16px;
+    padding: 10px;
+    font-size: 13px;
   }
 
   .tooltip-actions {
-    max-height: 48vh;
+    max-height: 40vh;
   }
 }
