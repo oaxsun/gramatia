@@ -36,6 +36,7 @@ function updateCounts(text, issueCount = null) {
   document.getElementById('wordCount').textContent = countWords(text);
   document.getElementById('letterCount').textContent = countLetters(text);
   document.getElementById('charCount').textContent = text.length;
+
   if (issueCount !== null) {
     document.getElementById('issueCount').textContent = issueCount;
   }
@@ -54,7 +55,8 @@ function renderHighlights(matches) {
   }
 
   if (!matches.length) {
-    highlights.innerHTML = escapeHtml(text) + '\n';
+    highlights.innerHTML = escapeHtml(text) + (text.endsWith('\n') ? '\u200b' : '\n');
+    syncScroll();
     return;
   }
 
@@ -67,14 +69,21 @@ function renderHighlights(matches) {
     const isActive = activeMatchKey === key ? ' active-error' : '';
 
     result += escapeHtml(text.slice(lastIndex, match.offset));
-    result += `<mark class="error-mark${isActive}" data-offset="${match.offset}" data-length="${match.length}" data-key="${key}">
-      ${escapeHtml(text.slice(match.offset, match.offset + match.length))}
-    </mark>`;
+    result += `<mark class="error-mark${isActive}" data-offset="${match.offset}" data-length="${match.length}" data-key="${key}">${escapeHtml(
+      text.slice(match.offset, match.offset + match.length)
+    )}</mark>`;
     lastIndex = match.offset + match.length;
   });
 
   result += escapeHtml(text.slice(lastIndex));
-  highlights.innerHTML = result + '\n';
+
+  if (text.endsWith('\n')) {
+    result += '\u200b';
+  } else {
+    result += '\n';
+  }
+
+  highlights.innerHTML = result;
   syncScroll();
 }
 
@@ -95,6 +104,7 @@ function buildIssuesList(matches) {
         const key = getMatchKey(item);
         const activeClass = activeMatchKey === key ? ' active-issue' : '';
         const selectedText = textInput.value.slice(item.offset, item.offset + item.length);
+
         return `
           <li class="issue-item${activeClass}" data-key="${key}">
             <span class="issue-word">${escapeHtml(selectedText)}</span>
@@ -367,12 +377,14 @@ document.getElementById('grammarResult').addEventListener('mouseover', (event) =
 document.addEventListener('click', (event) => {
   const clickedMark = event.target.closest('mark');
   const clickedTooltip = event.target.closest('#suggestionTooltip');
+
   if (!clickedMark && !clickedTooltip) {
     hideTooltip();
   }
 });
 
 let toastTimer;
+
 function showToast(message) {
   const toast = document.getElementById('toast');
   toast.textContent = message;
@@ -392,12 +404,14 @@ async function waitForBackend() {
 
   while (attempts < maxAttempts) {
     attempts += 1;
+
     try {
       message.textContent = attempts === 1
         ? 'Estamos despertando el servidor. Esto puede tardar unos segundos.'
         : `Conectando con el backend... intento ${attempts} de ${maxAttempts}.`;
 
       const response = await fetch(healthUrl, { method: 'GET', cache: 'no-store' });
+
       if (response.ok) {
         loader.style.display = 'none';
         appRoot.classList.remove('app-hidden');
