@@ -134,7 +134,7 @@ function renderAnalysisPanel(matches) {
     <div class="badge warn">Se encontraron observaciones</div>
     <div class="score">Puntuación estimada: ${score}/100</div>
     ${buildIssuesList(matches)}
-    <div class="legend">Pasa el cursor o haz clic sobre una palabra subrayada para ver su corrección.</div>
+    <div class="legend">Haz clic sobre una palabra subrayada para ver y aplicar una corrección.</div>
   `;
 }
 
@@ -209,7 +209,7 @@ async function correctText() {
 
     textInput.value = data.correctedText || text;
     await analyzeText();
-    showToast('Texto corregido.');
+    showToast('Todo el texto fue corregido.');
   } catch (error) {
     showToast(error.message || 'No se pudo corregir el texto.');
   }
@@ -262,7 +262,96 @@ function setActiveMatch(match) {
   }
 }
 
-function showTooltipForMatch(match, anchorEl) {
+function hideTooltip() {
+  tooltip.classList.add('hidden');
+  tooltip.innerHTML = '';
+}
+
+function findMatchByElement(mark) {
+  const offset = Number(mark.dataset.offset);
+  const length = Number(mark.dataset.length);
+  return lastMatches.find((item) => item.offset === offset && item.length === length);
+}
+
+function findMatchAtPosition(position) {
+  return lastMatches.find((match) => {
+    const start = match.offset;
+    const end = match.offset + match.length;
+    return position >= start && position <= end;
+  });
+}
+
+function getCaretCoordinates(textarea, position) {
+  const div = document.createElement('div');
+  const style = window.getComputedStyle(textarea);
+
+  const properties = [
+    'boxSizing',
+    'width',
+    'height',
+    'overflowX',
+    'overflowY',
+    'borderTopWidth',
+    'borderRightWidth',
+    'borderBottomWidth',
+    'borderLeftWidth',
+    'paddingTop',
+    'paddingRight',
+    'paddingBottom',
+    'paddingLeft',
+    'fontStyle',
+    'fontVariant',
+    'fontWeight',
+    'fontStretch',
+    'fontSize',
+    'fontSizeAdjust',
+    'lineHeight',
+    'fontFamily',
+    'textAlign',
+    'textTransform',
+    'textIndent',
+    'textDecoration',
+    'letterSpacing',
+    'wordSpacing',
+    'tabSize',
+    'MozTabSize'
+  ];
+
+  div.style.position = 'absolute';
+  div.style.visibility = 'hidden';
+  div.style.whiteSpace = 'pre-wrap';
+  div.style.wordWrap = 'break-word';
+  div.style.overflowWrap = 'break-word';
+  div.style.left = '-9999px';
+  div.style.top = '0';
+
+  properties.forEach((prop) => {
+    div.style[prop] = style[prop];
+  });
+
+  div.textContent = textarea.value.slice(0, position);
+
+  const span = document.createElement('span');
+  span.textContent = textarea.value.slice(position, position + 1) || '\u200b';
+  div.appendChild(span);
+
+  document.body.appendChild(div);
+
+  const textareaRect = textarea.getBoundingClientRect();
+  const spanRect = span.getBoundingClientRect();
+
+  const coordinates = {
+    top: spanRect.top - div.getBoundingClientRect().top - textarea.scrollTop,
+    left: spanRect.left - div.getBoundingClientRect().left - textarea.scrollLeft,
+    lineHeight: parseFloat(style.lineHeight) || 24,
+    textareaRect
+  };
+
+  document.body.removeChild(div);
+  return coordinates;
+}
+
+function showTooltipAtPosition(match, top, left) {
   const suggestions = Array.isArray(match.replacements) ? match.replacements : [];
   const selectedText = textInput.value.slice(match.offset, match.offset + match.length);
 
@@ -276,24 +365,19 @@ function showTooltipForMatch(match, anchorEl) {
     <div class="tooltip-subtitle">${escapeHtml(match.message || 'Posible error detectado.')}</div>
     <div class="tooltip-actions">
       ${suggestions.slice(0, 6).map((suggestion, index) => `
-        <button class="tooltip-suggestion" data-index="${index}">
+        <button class="tooltip-suggestion" type="button" data-index="${index}">
           ${escapeHtml(suggestion)}
         </button>
       `).join('')}
     </div>
   `;
 
-  const rect = anchorEl.getBoundingClientRect();
   tooltip.classList.remove('hidden');
-
-  const top = rect.bottom + window.scrollY + 10;
-  const left = rect.left + window.scrollX + (rect.width / 2);
-
   tooltip.style.top = `${top}px`;
   tooltip.style.left = `${left}px`;
 
   tooltip.querySelectorAll('.tooltip-suggestion').forEach((button, index) => {
-    button.addEventListener('click', () => {
+    button.addEventListener('click', async () => {
       const replacement = suggestions[index];
       const current = textInput.value;
 
@@ -303,21 +387,25 @@ function showTooltipForMatch(match, anchorEl) {
         current.slice(match.offset + match.length);
 
       hideTooltip();
-      analyzeText();
+      await analyzeText();
       showToast('Corrección aplicada.');
+      textInput.focus();
     });
   });
 }
 
-function hideTooltip() {
-  tooltip.classList.add('hidden');
-  tooltip.innerHTML = '';
+function showTooltipForMatch(match, anchorEl) {
+  const rect = anchorEl.getBoundingClientRect();
+  const top = rect.bottom + window.scrollY + 10;
+  const left = rect.left + window.scrollX + (rect.width / 2);
+  showTooltipAtPosition(match, top, left);
 }
 
-function findMatchByElement(mark) {
-  const offset = Number(mark.dataset.offset);
-  const length = Number(mark.dataset.length);
-  return lastMatches.find((item) => item.offset === offset && item.length === length);
+function showTooltipFromTextareaClick(match) {
+  const coords = getCaretCoordinates(textInput, match.offset + match.length);
+  const top = coords.textareaRect.top + window.scrollY + coords.top + coords.lineHeight + 8;
+  const left = coords.textareaRect.left + window.scrollX + coords.left;
+  showTooltipAtPosition(match, top, left);
 }
 
 textInput.addEventListener('scroll', () => {
@@ -330,6 +418,23 @@ textInput.addEventListener('input', () => {
   activeMatchKey = null;
   renderHighlights([]);
   updateCounts(textInput.value, 0);
+});
+
+textInput.addEventListener('click', () => {
+  if (!lastMatches.length) return;
+
+  const position = textInput.selectionStart;
+  const match = findMatchAtPosition(position);
+
+  if (!match) {
+    hideTooltip();
+    activeMatchKey = null;
+    renderHighlights(lastMatches);
+    return;
+  }
+
+  setActiveMatch(match);
+  showTooltipFromTextareaClick(match);
 });
 
 highlights.addEventListener('mouseover', (event) => {
@@ -374,11 +479,25 @@ document.getElementById('grammarResult').addEventListener('mouseover', (event) =
   setActiveMatch(match);
 });
 
+document.getElementById('grammarResult').addEventListener('click', (event) => {
+  const issue = event.target.closest('.issue-item');
+  if (!issue) return;
+
+  const key = issue.dataset.key;
+  const match = lastMatches.find((item) => getMatchKey(item) === key);
+  if (!match) return;
+
+  setActiveMatch(match);
+  showTooltipFromTextareaClick(match);
+});
+
 document.addEventListener('click', (event) => {
   const clickedMark = event.target.closest('mark');
   const clickedTooltip = event.target.closest('#suggestionTooltip');
+  const clickedIssue = event.target.closest('.issue-item');
+  const clickedTextarea = event.target.closest('#textInput');
 
-  if (!clickedMark && !clickedTooltip) {
+  if (!clickedMark && !clickedTooltip && !clickedIssue && !clickedTextarea) {
     hideTooltip();
   }
 });
